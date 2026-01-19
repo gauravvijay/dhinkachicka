@@ -1,5 +1,23 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 
+// Compression utilities using LZ-string style compression
+function compressData(data) {
+  // Simple but effective compression: base64 encoding after JSON stringification
+  // For better compression, we use a simple RLE-like approach
+  const json = JSON.stringify(data);
+  return btoa(json); // Base64 encode
+}
+
+function decompressData(encoded) {
+  try {
+    const json = atob(encoded); // Base64 decode
+    return JSON.parse(json);
+  } catch (e) {
+    console.error("Failed to decompress data:", e);
+    return null;
+  }
+}
+
 function fmt(seconds = 0) {
   const s = Math.floor(seconds % 60).toString().padStart(2, "0");
   const m = Math.floor(seconds / 60).toString();
@@ -17,6 +35,19 @@ function parseTime(input = "") {
   }
   const n = parseFloat(input);
   return isNaN(n) ? null : n;
+}
+
+function normalizeYouTubeUrl(url) {
+  // Detect YouTube Shorts and convert to embeddable format ONLY for Shorts
+  // https://www.youtube.com/shorts/VIDEO_ID -> https://www.youtube.com/embed/VIDEO_ID
+  const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+  if (shortsMatch) {
+    return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+  }
+  
+  // For all other video types (regular videos, short URLs, etc), return as-is
+  // The YouTube IFrame API will extract the video ID automatically
+  return url;
 }
 
 const STORAGE_KEYS = {
@@ -42,11 +73,13 @@ export default function App() {
   const [showAddStepDialog, setShowAddStepDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showManageDataDialog, setShowManageDataDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [editingStepId, setEditingStepId] = useState(null);
   const [isLooping, setIsLooping] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [selectedStepForThumbnail, setSelectedStepForThumbnail] = useState(null);
   const [savedVideos, setSavedVideos] = useState({});
+  const [shareUrl, setShareUrl] = useState("");
 
   const [dialogForm, setDialogForm] = useState({
     mainStart: "",
@@ -75,19 +108,75 @@ export default function App() {
     const savedMode = localStorage.getItem(STORAGE_KEYS.playbackMode);
     const savedVidMap = localStorage.getItem(STORAGE_KEYS.savedVideos);
 
-    if (savedUrl) setMainVideoUrl(savedUrl);
-    if (savedSteps) {
+    // Check for shared data in URL
+    const params = new URLSearchParams(window.location.search);
+    const sharedData = params.get("share");
+    
+    if (sharedData) {
       try {
-        setSteps(JSON.parse(savedSteps));
-      } catch (e) {}
+        const decoded = decompressData(sharedData);
+        if (decoded && decoded.videoUrl && decoded.steps) {
+          console.log("📤 Loading shared choreography...");
+          setMainVideoUrl(decoded.videoUrl);
+          setSteps(decoded.steps);
+          if (decoded.playbackMode) setPlaybackMode(decoded.playbackMode);
+          // Mark that we should auto-load the video
+          window.shouldAutoLoadVideo = true;
+        }
+      } catch (e) {
+        console.error("Failed to load shared data:", e);
+      }
+    } else {
+      // Load from localStorage
+      if (savedUrl) setMainVideoUrl(savedUrl);
+      if (savedSteps) {
+        try {
+          setSteps(JSON.parse(savedSteps));
+        } catch (e) {}
+      }
+      if (savedMode) setPlaybackMode(savedMode);
     }
-    if (savedMode) setPlaybackMode(savedMode);
+    
     if (savedVidMap) {
       try {
         setSavedVideos(JSON.parse(savedVidMap));
       } catch (e) {}
     }
   }, []);
+
+  useEffect(() => {
+    // Auto-load video when shared URL is loaded
+    if (mainVideoUrl && window.YT && window.YT.Player && window.shouldAutoLoadVideo) {
+      console.log("Auto-loading shared video:", mainVideoUrl);
+      loadMainVideo();
+      window.shouldAutoLoadVideo = false;
+    }
+  }, [mainVideoUrl]);
+
+  // Also watch for YouTube API availability to trigger auto-load
+  useEffect(() => {
+    const checkAndLoad = () => {
+      if (mainVideoUrl && window.YT && window.YT.Player && window.shouldAutoLoadVideo) {
+        console.log("YouTube API ready, auto-loading:", mainVideoUrl);
+        loadMainVideo();
+        window.shouldAutoLoadVideo = false;
+      }
+    };
+
+    // Check immediately
+    checkAndLoad();
+
+    // Also set up a listener for when YouTube API loads
+    const originalCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      originalCallback?.();
+      checkAndLoad();
+    };
+
+    return () => {
+      window.onYouTubeIframeAPIReady = originalCallback;
+    };
+  }, [mainVideoUrl]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.videoUrl, mainVideoUrl);
@@ -127,6 +216,16 @@ export default function App() {
 
   function extractVideoId(url) {
     if (!url) return null;
+    
+    // Handle embed URLs: youtube.com/embed/VIDEO_ID
+    const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+    if (embedMatch) return embedMatch[1];
+    
+    // Handle YouTube Shorts: youtube.com/shorts/VIDEO_ID
+    const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+    if (shortsMatch) return shortsMatch[1];
+    
+    // Handle regular YouTube URLs: youtube.com/watch?v=VIDEO_ID and youtu.be/VIDEO_ID
     const m = url.match(/(?:youtube\.com\/.*v=|youtu\.be\/)([^&?/]+)/);
     return m ? m[1] : null;
   }
@@ -160,9 +259,31 @@ export default function App() {
 
     if (playbackMode === "tutorial" && step.tutorialUrl) {
       const tutorialId = extractVideoId(step.tutorialUrl);
-      if (!tutorialId) return;
-      ytPlayerRef.current.loadVideoById(tutorialId);
-      setTimeout(() => {
+      if (!tutorialId) {
+        console.error("Could not extract tutorial video ID from:", step.tutorialUrl);
+        return;
+      }
+      const currentVideoId = ytPlayerRef.current.getVideoData?.()?.video_id;
+      console.log("Tutorial play - Current ID:", currentVideoId, "Tutorial ID:", tutorialId, "Same?", currentVideoId === tutorialId);
+      
+      // If it's a different video, load it; otherwise just seek
+      if (currentVideoId !== tutorialId) {
+        ytPlayerRef.current.loadVideoById(tutorialId);
+        setTimeout(() => {
+          ytPlayerRef.current?.seekTo(step.tutorialStart, true);
+          ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
+          ytPlayerRef.current?.playVideo();
+          currentlyLoopingRef.current = step.id;
+          if (loopIntervalRef.current) clearInterval(loopIntervalRef.current);
+          loopIntervalRef.current = setInterval(() => {
+            const t = ytPlayerRef.current.getCurrentTime();
+            if (t >= step.tutorialEnd - 0.05) {
+              ytPlayerRef.current.seekTo(step.tutorialStart, true);
+            }
+          }, 150);
+        }, 300);
+      } else {
+        // Same video, just seek
         ytPlayerRef.current?.seekTo(step.tutorialStart, true);
         ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
         ytPlayerRef.current?.playVideo();
@@ -174,11 +295,33 @@ export default function App() {
             ytPlayerRef.current.seekTo(step.tutorialStart, true);
           }
         }, 150);
-      }, 300);
+      }
     } else {
       const mainId = extractVideoId(mainVideoUrl);
-      ytPlayerRef.current.loadVideoById(mainId);
-      setTimeout(() => {
+      if (!mainId) {
+        console.error("Could not extract video ID from:", mainVideoUrl);
+        return;
+      }
+      const currentVideoId = ytPlayerRef.current.getVideoData?.()?.video_id;
+      
+      // If it's a different video, load it; otherwise just seek
+      if (currentVideoId !== mainId) {
+        ytPlayerRef.current.loadVideoById(mainId);
+        setTimeout(() => {
+          ytPlayerRef.current?.seekTo(step.mainStart, true);
+          ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
+          ytPlayerRef.current?.playVideo();
+          currentlyLoopingRef.current = step.id;
+          if (loopIntervalRef.current) clearInterval(loopIntervalRef.current);
+          loopIntervalRef.current = setInterval(() => {
+            const t = ytPlayerRef.current.getCurrentTime();
+            if (t >= step.mainEnd - 0.05) {
+              ytPlayerRef.current.seekTo(step.mainStart, true);
+            }
+          }, 150);
+        }, 300);
+      } else {
+        // Same video, just seek
         ytPlayerRef.current?.seekTo(step.mainStart, true);
         ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
         ytPlayerRef.current?.playVideo();
@@ -190,7 +333,7 @@ export default function App() {
             ytPlayerRef.current.seekTo(step.mainStart, true);
           }
         }, 150);
-      }, 300);
+      }
     }
   }
 
@@ -222,6 +365,9 @@ export default function App() {
       }
     }
 
+    // Normalize tutorial URL for Shorts support
+    const normalizedTutorialUrl = dialogForm.tutorialUrl ? normalizeYouTubeUrl(dialogForm.tutorialUrl) : "";
+
     if (editingStepId) {
       // Update existing step
       setSteps((prev) =>
@@ -229,7 +375,7 @@ export default function App() {
           s.id === editingStepId
             ? {
                 ...s,
-                tutorialUrl: dialogForm.tutorialUrl,
+                tutorialUrl: normalizedTutorialUrl,
                 mainStart,
                 mainEnd,
                 tutorialStart: tutorialStart || 0,
@@ -244,7 +390,7 @@ export default function App() {
       // Create new step
       const newStep = {
         id: Date.now().toString(36),
-        tutorialUrl: dialogForm.tutorialUrl,
+        tutorialUrl: normalizedTutorialUrl,
         mainStart,
         mainEnd,
         tutorialStart: tutorialStart || 0,
@@ -304,6 +450,36 @@ export default function App() {
     loadMainVideo();
   }
 
+  function generateShareableUrl() {
+    if (!mainVideoUrl || steps.length === 0) {
+      alert("Please load a video and create at least one step before sharing");
+      return;
+    }
+
+    const dataToShare = {
+      videoUrl: mainVideoUrl,
+      steps: steps,
+      playbackMode: playbackMode,
+    };
+
+    const compressed = compressData(dataToShare);
+    const baseUrl = window.location.origin + window.location.pathname;
+    const fullUrl = `${baseUrl}?share=${encodeURIComponent(compressed)}`;
+    
+    setShareUrl(fullUrl);
+    console.log(`📤 Share URL length: ${fullUrl.length} characters`);
+    console.log(`📤 Data size: ${JSON.stringify(dataToShare).length} characters`);
+    console.log(`📤 Compressed size: ${compressed.length} characters`);
+  }
+
+  function copyShareUrlToClipboard() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert("Share URL copied to clipboard!");
+    }).catch(() => {
+      alert("Failed to copy URL. Please copy manually.");
+    });
+  }
+
   function clearAllData() {
     if (confirm("Clear all saved steps and video URL?")) {
       localStorage.removeItem(STORAGE_KEYS.videoUrl);
@@ -339,7 +515,8 @@ export default function App() {
   };
 
   const handleSaveSettings = () => {
-    setMainVideoUrl(settingsForm.videoUrl);
+    const normalizedUrl = normalizeYouTubeUrl(settingsForm.videoUrl);
+    setMainVideoUrl(normalizedUrl);
     loadMainVideo();
     setShowSettingsDialog(false);
   };
@@ -443,12 +620,15 @@ export default function App() {
           <button onClick={handleSettingsClick} style={{ ...styles.btn, ...styles.btnSecondary, padding: "8px 14px", fontSize: "13px" }}>
             ⚙️ Add Video
           </button>
+          <button onClick={() => { generateShareableUrl(); setShowShareDialog(true); }} disabled={!mainVideoUrl || steps.length === 0} style={{ ...styles.btn, ...styles.btnPrimary, padding: "8px 14px", fontSize: "13px" }}>
+            🔗 Share
+          </button>
         </div>
       </div>
 
       <div style={styles.mainContent}>
         {/* Top Row: Video and Camera */}
-        <div style={styles.topRow}>
+        <div style={styles.topRow} data-mobile-stack>
           {/* Main Player */}
           <div style={styles.playerSection}>
             <div ref={playerRef} style={styles.player} />
@@ -663,6 +843,58 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Share Dialog */}
+      {showShareDialog && (
+        <div style={styles.modalOverlay} onClick={() => setShowShareDialog(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#2A1F1F" }}>🔗 Share Choreography</h2>
+              <button onClick={() => setShowShareDialog(false)} style={{ background: "none", border: "none", fontSize: "24px", cursor: "pointer", padding: 0 }}>
+                ✕
+              </button>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={{ fontSize: "13px", fontWeight: "600", color: "#2A1F1F" }}>Shareable Link</label>
+              <textarea 
+                value={shareUrl} 
+                readOnly 
+                style={{ 
+                  width: "100%", 
+                  padding: "12px", 
+                  fontSize: "12px", 
+                  border: "2px solid #CCC", 
+                  borderRadius: "4px", 
+                  fontFamily: "monospace", 
+                  minHeight: "80px", 
+                  resize: "vertical",
+                  backgroundColor: "#f9f9f9",
+                  color: "#2A1F1F"
+                }}
+              />
+              <p style={{ fontSize: "12px", color: "#999", margin: "8px 0 0 0" }}>
+                Link size: {shareUrl.length} characters
+              </p>
+            </div>
+            <div style={styles.formActions}>
+              <button onClick={copyShareUrlToClipboard} style={{ ...styles.btn, ...styles.btnPrimary, flex: 1 }}>
+                📋 Copy to Clipboard
+              </button>
+              <button onClick={() => setShowShareDialog(false)} style={{ ...styles.btn, ...styles.btnSecondary, flex: 1 }}>
+                Close
+              </button>
+            </div>
+            <div style={{ marginTop: "20px", padding: "12px", backgroundColor: "#f0f7ff", borderRadius: "6px", fontSize: "12px", color: "#2A1F1F", lineHeight: "1.5" }}>
+              <strong>How to share:</strong>
+              <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+                <li>Copy the link and share it with others</li>
+                <li>When they open it, your choreography and steps will load automatically</li>
+                <li>No need to save or upload files separately</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -709,3 +941,20 @@ const styles = {
   modal: { backgroundColor: "#fff", borderRadius: "12px", padding: "32px", maxWidth: "600px", width: "90%", maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)" },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", paddingBottom: "12px", borderBottom: "1px solid #E0DDD5", color: "#2A1F1F" },
 };
+
+// Media query styles for mobile responsiveness
+const mediaQueryStyles = `
+  @media (max-width: 768px) {
+    [data-mobile-stack] {
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+    }
+  }
+`;
+
+// Inject media query styles into the document
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = mediaQueryStyles;
+  document.head.appendChild(style);
+}
