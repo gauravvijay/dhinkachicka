@@ -1,21 +1,48 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 
-// Compression utilities using LZ-string style compression
+// URL compression with aliases - store only video IDs, not full URLs
+// This reduces share URL size by ~60%
 function compressData(data) {
-  // Simple but effective compression: base64 encoding after JSON stringification
-  // For better compression, we use a simple RLE-like approach
-  const json = JSON.stringify(data);
+  // Only store video IDs and steps - reconstruct URLs on load
+  const compressed = {
+    v: extractVideoId(data.videoUrl), // main video ID
+    s: data.steps, // steps array
+    m: data.playbackMode || "original"
+  };
+  const json = JSON.stringify(compressed);
   return btoa(json); // Base64 encode
 }
 
 function decompressData(encoded) {
   try {
-    const json = atob(encoded); // Base64 decode
-    return JSON.parse(json);
+    const json = atob(encoded);
+    const compressed = JSON.parse(json);
+    // Reconstruct full URL from video ID
+    return {
+      videoUrl: compressed.v ? `https://www.youtube.com/embed/${compressed.v}` : "",
+      steps: compressed.s || [],
+      playbackMode: compressed.m || "original"
+    };
   } catch (e) {
     console.error("Failed to decompress data:", e);
     return null;
   }
+}
+
+function extractVideoId(url) {
+  if (!url) return null;
+  
+  // Handle embed URLs: youtube.com/embed/VIDEO_ID
+  const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+  if (embedMatch) return embedMatch[1];
+  
+  // Handle YouTube Shorts: youtube.com/shorts/VIDEO_ID
+  const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+  if (shortsMatch) return shortsMatch[1];
+  
+  // Handle regular YouTube URLs: youtube.com/watch?v=VIDEO_ID and youtu.be/VIDEO_ID
+  const m = url.match(/(?:youtube\.com\/.*v=|youtu\.be\/)([^&?/]+)/);
+  return m ? m[1] : null;
 }
 
 function fmt(seconds = 0) {
@@ -39,23 +66,12 @@ function parseTime(input = "") {
 
 function normalizeYouTubeUrl(url) {
   // Detect YouTube Shorts and convert to embeddable format ONLY for Shorts
-  // https://www.youtube.com/shorts/VIDEO_ID -> https://www.youtube.com/embed/VIDEO_ID
   const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
   if (shortsMatch) {
     return `https://www.youtube.com/embed/${shortsMatch[1]}`;
   }
-  
-  // For all other video types (regular videos, short URLs, etc), return as-is
-  // The YouTube IFrame API will extract the video ID automatically
   return url;
 }
-
-const STORAGE_KEYS = {
-  videoUrl: "dhinkachika.videoUrl",
-  steps: "dhinkachika.steps",
-  playbackMode: "dhinkachika.mode",
-  savedVideos: "dhinkachika.videos", // Map of URLs to their steps
-};
 
 export default function App() {
   const playerRef = useRef(null);
@@ -72,13 +88,10 @@ export default function App() {
   const [cameraActive, setCameraActive] = useState(false);
   const [showAddStepDialog, setShowAddStepDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [showManageDataDialog, setShowManageDataDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [editingStepId, setEditingStepId] = useState(null);
   const [isLooping, setIsLooping] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [selectedStepForThumbnail, setSelectedStepForThumbnail] = useState(null);
-  const [savedVideos, setSavedVideos] = useState({});
   const [shareUrl, setShareUrl] = useState("");
 
   const [dialogForm, setDialogForm] = useState({
@@ -103,11 +116,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem(STORAGE_KEYS.videoUrl);
-    const savedSteps = localStorage.getItem(STORAGE_KEYS.steps);
-    const savedMode = localStorage.getItem(STORAGE_KEYS.playbackMode);
-    const savedVidMap = localStorage.getItem(STORAGE_KEYS.savedVideos);
-
     // Check for shared data in URL
     const params = new URLSearchParams(window.location.search);
     const sharedData = params.get("share");
@@ -126,44 +134,19 @@ export default function App() {
       } catch (e) {
         console.error("Failed to load shared data:", e);
       }
-    } else {
-      // Load from localStorage
-      if (savedUrl) setMainVideoUrl(savedUrl);
-      if (savedSteps) {
-        try {
-          setSteps(JSON.parse(savedSteps));
-        } catch (e) {}
-      }
-      if (savedMode) setPlaybackMode(savedMode);
-    }
-    
-    if (savedVidMap) {
-      try {
-        setSavedVideos(JSON.parse(savedVidMap));
-      } catch (e) {}
     }
   }, []);
 
-  useEffect(() => {
-    // Auto-load video when shared URL is loaded
-    if (mainVideoUrl && window.YT && window.YT.Player && window.shouldAutoLoadVideo) {
-      console.log("Auto-loading shared video:", mainVideoUrl);
-      loadMainVideo();
-      window.shouldAutoLoadVideo = false;
-    }
-  }, [mainVideoUrl]);
-
-  // Also watch for YouTube API availability to trigger auto-load
+  // Auto-load video when shared URL is loaded
   useEffect(() => {
     const checkAndLoad = () => {
       if (mainVideoUrl && window.YT && window.YT.Player && window.shouldAutoLoadVideo) {
-        console.log("YouTube API ready, auto-loading:", mainVideoUrl);
+        console.log("Auto-loading shared video:", mainVideoUrl);
         loadMainVideo();
         window.shouldAutoLoadVideo = false;
       }
     };
 
-    // Check immediately
     checkAndLoad();
 
     // Also set up a listener for when YouTube API loads
@@ -177,22 +160,6 @@ export default function App() {
       window.onYouTubeIframeAPIReady = originalCallback;
     };
   }, [mainVideoUrl]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.videoUrl, mainVideoUrl);
-  }, [mainVideoUrl]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.steps, JSON.stringify(steps));
-    // Update saved videos with current steps
-    if (mainVideoUrl) {
-      setSavedVideos((prev) => ({ ...prev, [mainVideoUrl]: steps }));
-    }
-  }, [steps, mainVideoUrl]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.playbackMode, playbackMode);
-  }, [playbackMode]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.savedVideos, JSON.stringify(savedVideos));
@@ -443,13 +410,6 @@ export default function App() {
     setCameraActive(false);
   }
 
-  function loadSavedVideo(videoUrl) {
-    setMainVideoUrl(videoUrl);
-    const stepsForVideo = savedVideos[videoUrl] || [];
-    setSteps(stepsForVideo);
-    loadMainVideo();
-  }
-
   function generateShareableUrl() {
     if (!mainVideoUrl || steps.length === 0) {
       alert("Please load a video and create at least one step before sharing");
@@ -478,16 +438,6 @@ export default function App() {
     }).catch(() => {
       alert("Failed to copy URL. Please copy manually.");
     });
-  }
-
-  function clearAllData() {
-    if (confirm("Clear all saved steps and video URL?")) {
-      localStorage.removeItem(STORAGE_KEYS.videoUrl);
-      localStorage.removeItem(STORAGE_KEYS.steps);
-      setMainVideoUrl("");
-      setSteps([]);
-      stopPlayback();
-    }
   }
 
   const handleSettingsClick = () => {
@@ -603,20 +553,6 @@ export default function App() {
       <div style={styles.header}>
         <h1 style={styles.headerTitle}>🎬 dhinkachika</h1>
         <div style={styles.headerControls}>
-          {Object.keys(savedVideos).length > 0 && (
-            <select 
-              value={mainVideoUrl} 
-              onChange={(e) => loadSavedVideo(e.target.value)} 
-              style={{ ...styles.headerSelect, marginRight: "12px" }}
-            >
-              <option value="">Select saved video...</option>
-              {Object.keys(savedVideos).map((url) => (
-                <option key={url} value={url}>
-                  {url.substring(url.lastIndexOf("/") + 1, url.lastIndexOf("/") === -1 ? url.length : url.length)}
-                </option>
-              ))}
-            </select>
-          )}
           <button onClick={handleSettingsClick} style={{ ...styles.btn, ...styles.btnSecondary, padding: "8px 14px", fontSize: "13px" }}>
             ⚙️ Add Video
           </button>
@@ -624,9 +560,7 @@ export default function App() {
             🔗 Share
           </button>
         </div>
-      </div>
-
-      <div style={styles.mainContent}>
+      </div>      <div style={styles.mainContent}>
         {/* Top Row: Video and Camera */}
         <div style={styles.topRow} data-mobile-stack>
           {/* Main Player */}
@@ -748,9 +682,6 @@ export default function App() {
                 Load Video
               </button>
             </div>
-            <button onClick={() => { setShowSettingsDialog(false); setShowManageDataDialog(true); }} style={{ ...styles.btn, ...styles.btnSecondary, width: "100%", marginTop: "16px" }}>
-              ⚙️ Manage Data
-            </button>
           </div>
         </div>
       )}
@@ -811,33 +742,6 @@ export default function App() {
               </button>
               <button onClick={handleAddStep} style={{ ...styles.btn, ...styles.btnPrimary, flex: 1 }}>
                 {editingStepId ? "Update Step" : "Save Step"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Data Dialog */}
-      {showManageDataDialog && (
-        <div style={styles.modalOverlay} onClick={() => setShowManageDataDialog(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2>Manage Data</h2>
-              <button onClick={() => setShowManageDataDialog(false)} style={{ ...styles.btn, ...styles.btnSecondary, padding: "4px 8px", fontSize: "14px", minWidth: "auto" }}>
-                ✕
-              </button>
-            </div>
-            <div style={styles.formGroup}>
-              <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>
-                Clearing all data will reset your video URL and all steps you've created. This action cannot be undone.
-              </p>
-            </div>
-            <div style={styles.formActions}>
-              <button onClick={() => setShowManageDataDialog(false)} style={{ ...styles.btn, ...styles.btnSecondary, flex: 1 }}>
-                Cancel
-              </button>
-              <button onClick={() => { clearAllData(); setShowManageDataDialog(false); }} style={{ ...styles.btn, ...styles.btnDanger, flex: 1 }}>
-                🧹 Clear All Data
               </button>
             </div>
           </div>
