@@ -6,7 +6,7 @@
 import React from "react";
 import { styles } from "../styles/theme";
 
-export function Header({ onSettingsClick, onShareClick, canShare }) {
+export function Header({ onSettingsClick, onShareClick, canShare, onTogglePanels, panelsVisible }) {
   return (
     <div style={styles.header}>
       <h1 style={styles.headerTitle}>🎬 dhinkachika</h1>
@@ -21,6 +21,18 @@ export function Header({ onSettingsClick, onShareClick, canShare }) {
           }}
         >
           ⚙️ Add Video
+        </button>
+        <button
+          onClick={onTogglePanels}
+          style={{
+            ...styles.btn,
+            ...styles.btnSecondary,
+            padding: "8px 14px",
+            fontSize: "13px",
+            marginRight: "8px",
+          }}
+        >
+          {panelsVisible ? "Hide Camera & Steps" : "Show Camera & Steps"}
         </button>
         <button
           onClick={onShareClick}

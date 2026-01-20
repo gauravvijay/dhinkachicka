@@ -29,6 +29,9 @@ export default function App() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
 
+  // Panel visibility states
+  const [showCameraAndTimeline, setShowCameraAndTimeline] = useState(false);
+
   // Form state
   const [settingsForm, setSettingsForm] = useState({ videoUrl: "" });
 
@@ -195,10 +198,13 @@ export default function App() {
         }}
         onShareClick={handleGenerateShareUrl}
         canShare={!!mainVideoUrl && steps.length > 0}
+        onTogglePanels={() => setShowCameraAndTimeline((s) => !s)}
+        panelsVisible={showCameraAndTimeline}
       />
 
       <div style={styles.mainContent}>
-        <div style={styles.topRow} data-mobile-stack>
+        {/* topRow uses single column when camera/timeline are hidden so the player expands */}
+        <div style={showCameraAndTimeline ? styles.topRow : { ...styles.topRow, gridTemplateColumns: "1fr" }} data-mobile-stack>
           <VideoPlayer
             playerRef={playerRef}
             playerReady={playerReady}
@@ -209,34 +215,36 @@ export default function App() {
             isLooping={isLooping}
             onStop={handleStopPlayback}
           />
-
-          <CameraSection
-            cameraVideoRef={cameraVideoRef}
-            cameraActive={cameraActive}
-            onToggleCamera={handleToggleCamera}
-          />
+          {showCameraAndTimeline && (
+            <CameraSection
+              cameraVideoRef={cameraVideoRef}
+              cameraActive={cameraActive}
+              onToggleCamera={handleToggleCamera}
+            />
+          )}
         </div>
-
-        <Timeline
-          steps={steps}
-          currentlyLoopingStepId={currentlyLoopingRef.current}
-          playerReady={playerReady}
-          onPlayStep={handlePlayStep}
-          onEditStep={handleEditStepClick}
-          onDeleteStep={handleDeleteStep}
-          onAddStep={() => {
-            setDialogForm({
-              mainStart: "",
-              mainEnd: "",
-              tutorialUrl: "",
-              tutorialStart: "",
-              tutorialEnd: "",
-              lyrics: "",
-            });
-            cancelEditing();
-            setShowAddStepDialog(true);
-          }}
-        />
+        {showCameraAndTimeline && (
+          <Timeline
+            steps={steps}
+            currentlyLoopingStepId={currentlyLoopingRef.current}
+            playerReady={playerReady}
+            onPlayStep={handlePlayStep}
+            onEditStep={handleEditStepClick}
+            onDeleteStep={handleDeleteStep}
+            onAddStep={() => {
+              setDialogForm({
+                mainStart: "",
+                mainEnd: "",
+                tutorialUrl: "",
+                tutorialStart: "",
+                tutorialEnd: "",
+                lyrics: "",
+              });
+              cancelEditing();
+              setShowAddStepDialog(true);
+            }}
+          />
+        )}
       </div>
 
       <LoadVideoDialog
