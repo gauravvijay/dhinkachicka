@@ -8,19 +8,17 @@ import { styles } from "../styles/theme";
 
 export function CameraSection({ cameraVideoRef, cameraActive, onToggleCamera }) {
   return (
-    <div style={styles.cameraSection}>
+    <div style={styles.cameraSection} data-desktop-only>
       <div style={styles.sectionHeader}>
-        <h2 style={{ margin: 0, fontSize: "18px", color: "#fff" }}>📷 Mirror</h2>
+        <h2 style={styles.sectionTitle}>📷 Mirror</h2>
         <button
           onClick={onToggleCamera}
           style={{
             ...styles.btn,
-            ...(cameraActive ? styles.btnDanger : styles.btnSuccess),
-            padding: "6px 12px",
-            fontSize: "12px",
+            ...(cameraActive ? styles.btnDanger : styles.btnPrimary),
           }}
         >
-          {cameraActive ? "Stop" : "Start"}
+          {cameraActive ? "Stop Camera" : "Start Camera"}
         </button>
       </div>
       <video
@@ -33,7 +31,7 @@ export function CameraSection({ cameraVideoRef, cameraActive, onToggleCamera }) 
           display: cameraActive ? "block" : "none",
         }}
       />
-      {!cameraActive && <div style={styles.cameraPlaceholder}>Camera off</div>}
+      {!cameraActive && <div style={styles.cameraPlaceholder}>Camera off - click Start Camera to begin</div>}
     </div>
   );
 }

@@ -46,6 +46,34 @@ export function useVideoPlayback() {
       }, 150);
     };
 
+    // Handle multi-select: use mainStart and mainEnd for looping across selected steps
+    if (step.isMultiSelect) {
+      const mainId = extractVideoId(mainVideoUrl);
+      if (!mainId) {
+        console.error("Could not extract video ID from:", mainVideoUrl);
+        return;
+      }
+      const currentVideoId = ytPlayerRef.current.getVideoData?.()?.video_id;
+      
+      if (currentVideoId !== mainId) {
+        ytPlayerRef.current.loadVideoById(mainId);
+        setTimeout(() => {
+          ytPlayerRef.current?.seekTo(step.mainStart, true);
+          ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
+          ytPlayerRef.current?.playVideo();
+          currentlyLoopingRef.current = "multi-select";
+          startLoop(step.mainStart, step.mainEnd);
+        }, 300);
+      } else {
+        ytPlayerRef.current?.seekTo(step.mainStart, true);
+        ytPlayerRef.current?.setPlaybackRate(playbackSpeed);
+        ytPlayerRef.current?.playVideo();
+        currentlyLoopingRef.current = "multi-select";
+        startLoop(step.mainStart, step.mainEnd);
+      }
+      return;
+    }
+
     if (playbackMode === "tutorial" && step.tutorialUrl) {
       const tutorialId = extractVideoId(step.tutorialUrl);
       if (!tutorialId) {
