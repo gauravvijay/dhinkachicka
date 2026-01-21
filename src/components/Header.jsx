@@ -11,9 +11,9 @@ export function Header({ onSettingsClick, onShareClick, canShare }) {
     <div style={styles.header}>
       <h1 style={styles.headerTitle}>
         <img
-          src="/logo.svg"
+          src="/dhinkachicka/logo.svg"
           alt="dhinkachicka"
-          style={{ width: "32px", height: "32px", borderRadius: "50%" }}
+          data-logo-img
         />
         dhinkachicka
       </h1>

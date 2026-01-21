@@ -1,18 +1,43 @@
 /**
- * Styles Module - Ultra Premium Design
- * All styles for the application, separated for maintainability
+ * Premium Styles Module - Ultra Premium Design System
+ * All styles for the application, organized and optimized
+ * Uses premium font stack for maximum elegance and performance
  */
+
+// Import premium fonts
+import '@fontsource/playfair-display/700.css';
+import '@fontsource/syne/700.css';
+import '@fontsource/space-grotesk/400.css';
+import '@fontsource/space-grotesk/600.css';
+
+const FONTS = {
+  display: `'Playfair Display', 'Georgia', serif`,
+  heading: `'Syne', 'Trebuchet MS', sans-serif`,
+  body: `'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`,
+};
+
+const COLORS = {
+  primary: "#FF6B35",
+  primaryLight: "#FF8A5B",
+  accent: "#00D9FF",
+  background: "#0F0F0F",
+  backgroundLight: "#252525",
+  text: "#E8E8E8",
+  textSecondary: "#B0B0B0",
+  textMuted: "#888888",
+};
 
 export const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: #FF8A5B #1F1F1F; }
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe Print', sans-serif;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #0F0F0F 0%, #1A1A1A 100%);
     color: #E8E8E8;
-    min-height: 100vh;
     font-weight: 400;
     letter-spacing: 0.3px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   button {
     font-family: inherit;
@@ -108,8 +133,62 @@ export const globalStyles = `
     font-size: 12px;
     color: #8A8A8A;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', 'Georgia', serif;
+    line-height: 1.2;
+  }
+  h1 {
+    font-size: 2rem;
+    letter-spacing: -1px;
+  }
+  /* Mobile Floating Action Button */
+  [data-mobile-fab] {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF7D4A 0%, #FF6B35 100%);
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+    transition: all 0.3s ease;
+  }
+  [data-mobile-fab]:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 20px rgba(255, 107, 53, 0.5);
+  }
+  [data-mobile-fab]:active {
+    transform: scale(0.95);
+  }
+  [data-mobile-fab][aria-pressed="true"] {
+    background: linear-gradient(135deg, #F53E3E 0%, #E21E1E 100%);
+    box-shadow: 0 4px 16px rgba(255, 68, 68, 0.5);
+  }
+  /* Grid for video and camera */
+  [data-video-camera-grid] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  /* Logo image styling */
+  [data-logo-img] {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
   @media (max-width: 768px) {
-    body { background: linear-gradient(135deg, #FFFBF0 0%, #F9F6F2 100%); }
+    body { font-size: 15px; }
+    button { padding: 8px 16px; font-size: 13px; }
+    h1 { font-size: 1.5rem; }
   }
 `;
 
@@ -129,9 +208,9 @@ export const mediaQueryStyles = `
 `;
 
 export const styles = {
-  container: { width: "100%", height: "100vh", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", backgroundColor: "#0F0F0F", display: "flex", flexDirection: "column", overflow: "auto" },
-  header: { backgroundColor: "rgba(20, 20, 20, 0.8)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255, 107, 53, 0.1)", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, boxShadow: "0 2px 16px rgba(0, 0, 0, 0.3)" },
-  headerTitle: { margin: 0, fontSize: "26px", fontWeight: "700", color: "#FF8A5B", letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: "12px" },
+  container: { width: "100%", minHeight: "100vh", fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", backgroundColor: "#0F0F0F", display: "flex", flexDirection: "column", overflow: "auto" },
+  header: { backgroundColor: "rgba(20, 20, 20, 0.8)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255, 107, 53, 0.1)", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, boxShadow: "0 2px 16px rgba(0, 0, 0, 0.3)", position: "sticky", top: 0, zIndex: 100 },
+  headerTitle: { margin: 0, fontSize: "26px", fontWeight: "700", color: "#FF6B35", letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: "12px", fontFamily: "'Playfair Display', 'Georgia', serif", textShadow: "0 2px 8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 107, 53, 0.2)" },
   headerControls: { display: "flex", gap: "10px", alignItems: "center" },
   headerSelect: { padding: "10px 14px", border: "1.5px solid rgba(255, 107, 53, 0.2)", borderRadius: "8px", fontSize: "14px", backgroundColor: "rgba(255, 255, 255, 0.05)", color: "#E8E8E8", cursor: "pointer", fontWeight: "500", backdropFilter: "blur(10px)" },
   mainContent: { display: "flex", flexDirection: "column", gap: "16px", padding: "20px", flex: 1, width: "100%" },
