@@ -186,7 +186,15 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <style>{globalStyles + mediaQueryStyles}</style>
+      <style>
+        {`${globalStyles}${mediaQueryStyles}
+          @media (max-width: 768px) {
+            [data-video-camera-grid] {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}
+      </style>
 
       {/* Mobile floating camera button */}
       <button
@@ -226,8 +234,7 @@ export default function App() {
       />
 
       <div style={styles.mainContent}>
-        {/* Desktop: two-column layout, Mobile: single column */}
-        <div style={styles.topRow} data-mobile-stack>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }} data-video-camera-grid>
           <VideoPlayer
             playerRef={playerRef}
             playerReady={playerReady}

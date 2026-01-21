@@ -8,7 +8,7 @@ import { styles } from "../styles/theme";
 
 export function CameraSection({ cameraVideoRef, cameraActive, onToggleCamera }) {
   return (
-    <div style={styles.cameraSection} data-desktop-only>
+    <div style={styles.cameraSection}>
       <div style={styles.sectionHeader}>
         <h2 style={styles.sectionTitle}>📷 Mirror</h2>
         <button
@@ -21,17 +21,22 @@ export function CameraSection({ cameraVideoRef, cameraActive, onToggleCamera }) 
           {cameraActive ? "Stop Camera" : "Start Camera"}
         </button>
       </div>
-      <video
-        ref={cameraVideoRef}
-        muted
-        autoPlay
-        playsInline
-        style={{
-          ...styles.cameraPreview,
-          display: cameraActive ? "block" : "none",
-        }}
-      />
-      {!cameraActive && <div style={styles.cameraPlaceholder}>Camera off - click Start Camera to begin</div>}
+      {cameraActive ? (
+        <video
+          ref={cameraVideoRef}
+          muted
+          autoPlay
+          playsInline
+          style={{
+            ...styles.cameraPreview,
+            display: "block",
+          }}
+        />
+      ) : (
+        <div style={styles.cameraPlaceholder}>
+          Camera off - click Start Camera to begin
+        </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,14 @@ import { styles } from "../styles/theme";
 export function Header({ onSettingsClick, onShareClick, canShare }) {
   return (
     <div style={styles.header}>
-      <h1 style={styles.headerTitle}>🎬 dhinkachika</h1>
+      <h1 style={styles.headerTitle}>
+        <img
+          src="/logo.svg"
+          alt="dhinkachicka"
+          style={{ width: "32px", height: "32px", borderRadius: "50%" }}
+        />
+        dhinkachicka
+      </h1>
       <div style={styles.headerControls}>
         <button
           onClick={onSettingsClick}

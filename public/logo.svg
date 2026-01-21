@@ -1,0 +1,68 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF8A5B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F5F5F5;stop-opacity:1" />
+    </linearGradient>
+    <filter id="logoShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#logoGrad1)" filter="url(#logoShadow)"/>
+  
+  <!-- Inner white circle for depth -->
+  <circle cx="100" cy="100" r="90" fill="#FFFBF0" opacity="0.1"/>
+
+  <!-- Dancing figure - more stylized -->
+  <!-- Head -->
+  <circle cx="100" cy="45" r="12" fill="url(#logoGrad2)" filter="url(#logoShadow)"/>
+
+  <!-- Body -->
+  <g stroke="url(#logoGrad2)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Torso -->
+    <path d="M 100 57 Q 95 75 100 95" filter="url(#logoShadow)"/>
+    
+    <!-- Left arm raised (dynamic) -->
+    <path d="M 95 65 Q 70 50 60 40" filter="url(#logoShadow)"/>
+    
+    <!-- Right arm extended (dynamic) -->
+    <path d="M 105 65 Q 130 55 145 60" filter="url(#logoShadow)"/>
+    
+    <!-- Left leg -->
+    <path d="M 98 95 Q 90 120 88 145" filter="url(#logoShadow)"/>
+    
+    <!-- Right leg (extended) -->
+    <path d="M 102 95 Q 115 120 125 145" filter="url(#logoShadow)"/>
+  </g>
+
+  <!-- Musical notes accent (top right) -->
+  <g fill="url(#logoGrad2)" filter="url(#logoShadow)">
+    <!-- Note 1 -->
+    <ellipse cx="145" cy="75" rx="3" ry="4"/>
+    <line x1="145" y1="68" x2="145" y2="50" stroke="url(#logoGrad2)" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Note 2 -->
+    <ellipse cx="160" cy="82" rx="3" ry="4"/>
+    <line x1="160" y1="75" x2="160" y2="55" stroke="url(#logoGrad2)" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Beam connecting notes -->
+    <line x1="145" y1="50" x2="160" y2="55" stroke="url(#logoGrad2)" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Step indicator (bottom left) -->
+  <g stroke="url(#logoGrad2)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#logoShadow)">
+    <!-- Chevron 1 -->
+    <polyline points="50,130 60,140 50,150"/>
+    <!-- Chevron 2 -->
+    <polyline points="65,130 75,140 65,150"/>
+  </g>
+
+  <!-- Highlight accent -->
+  <circle cx="75" cy="60" r="8" fill="white" opacity="0.2" filter="url(#logoShadow)"/>
+</svg>
