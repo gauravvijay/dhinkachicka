@@ -40,6 +40,9 @@ export function Timeline({
 
   const isMultiSelectMode = selectedStepIds.size > 0;
 
+  // Sort steps by mainStart time (chronologically)
+  const sortedSteps = [...steps].sort((a, b) => a.mainStart - b.mainStart);
+
   return (
     <div style={styles.timelineSection}>
       <div style={styles.sectionHeader}>
@@ -87,7 +90,7 @@ export function Timeline({
         <div style={styles.timelineContainer}>
           <div style={styles.timelineScroll} className="no-scroll">
             <div style={styles.timelineTrack}>
-              {steps.map((step) => (
+              {sortedSteps.map((step) => (
                 <div
                   key={step.id}
                   onClick={() => onPlayStep(step)}
@@ -113,7 +116,7 @@ export function Timeline({
           </div>
 
           <div style={styles.stepsList} className="no-scroll">
-            {steps.map((step) => (
+            {sortedSteps.map((step) => (
               <div
                 key={step.id}
                 style={{

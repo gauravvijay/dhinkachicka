@@ -119,6 +119,9 @@ export const mediaQueryStyles = `
     [data-desktop-only] {
       display: none !important;
     }
+    [data-mobile-fab] {
+      display: flex !important;
+    }
   }
 `;
 

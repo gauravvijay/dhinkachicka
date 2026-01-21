@@ -188,6 +188,34 @@ export default function App() {
     <div style={styles.container}>
       <style>{globalStyles + mediaQueryStyles}</style>
 
+      {/* Mobile floating camera button */}
+      <button
+        onClick={handleToggleCamera}
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          width: "60px",
+          height: "60px",
+          borderRadius: "50%",
+          backgroundColor: cameraActive ? "#FF4444" : "#FF6B35",
+          border: "none",
+          color: "white",
+          fontSize: "24px",
+          cursor: "pointer",
+          zIndex: 1000,
+          display: "none",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 4px 12px rgba(255, 107, 53, 0.4)",
+          transition: "all 0.3s ease",
+        }}
+        data-mobile-fab
+        title={cameraActive ? "Stop Camera" : "Start Camera"}
+      >
+        📷
+      </button>
+
       <Header
         onSettingsClick={() => {
           setSettingsForm({ videoUrl: mainVideoUrl });
